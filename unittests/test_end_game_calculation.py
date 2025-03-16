@@ -232,10 +232,10 @@ class MyTestCase(unittest.TestCase):
         mj_game.player_tiles[1].hand = [300, 300]
         mj_game.player_tiles[1].recent_tile = 300
         game_result, _ = mj_game.game_result(1, (2,))
-        self.assertIn((2, _key(PointType.NO_SELF), ()), game_result)
+        self.assertIn((1, _key(PointType.NO_SELF), ()), game_result)
         self.assertNotIn((1, _key(PointType.HALF_NO_SELF), ()), game_result)
         game_result, _ = mj_game.game_result(1, (2, 3, 0))
-        self.assertNotIn((2, _key(PointType.NO_SELF), ()), game_result)
+        self.assertNotIn((1, _key(PointType.NO_SELF), ()), game_result)
         self.assertIn((1, _key(PointType.HALF_NO_SELF), ()), game_result)
 
         mj_game.player_tiles[1].self_kong = [201]

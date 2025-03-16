@@ -562,7 +562,7 @@ class MahjongGame:
             if _all_self:
                 points.append((1, _key(PointType.ALL_SELF), tuple()))
             elif len(tiles.hand) == 2:
-                points.append((2, _key(PointType.NO_SELF), tuple()))
+                points.append((1, _key(PointType.NO_SELF), tuple()))
 
         winner_seat = (3 + sum(self.dice_result) + self.banker - winner) % 4
 
