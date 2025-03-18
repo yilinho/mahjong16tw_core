@@ -246,7 +246,7 @@ def get_draw_action(pid, actions, mj_game, temperature, avoid: bool = False, loo
         scores = get_discard(tuple(sorted(tiles.hand)), no_flowers, avoid_tiles)
         if temperature > 0:
             best_score = scores[0][0]
-            scores = [(s + best_score * random.random() * temperature, t) for s, t in scores[:3]]
+            scores = [(s + best_score * random.random() * temperature, t) for s, t in scores[:4]]
             scores.sort(reverse=True)
         _target = scores[0][1]
     return _action, _target
