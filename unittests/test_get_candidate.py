@@ -1,6 +1,6 @@
 import unittest
 
-from ..engine import get_candidates
+from mahjong16tw_core.engine import get_candidates
 
 
 class MyTestCase(unittest.TestCase):

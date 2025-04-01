@@ -1,7 +1,7 @@
 import unittest
 from collections import deque
 
-from ..engine import MahjongGame, PointType, GameState, Action
+from mahjong16tw_core.engine import MahjongGame, PointType, GameState, Action
 
 
 def _key(score_type: PointType):
@@ -424,41 +424,65 @@ class MyTestCase(unittest.TestCase):
             211, 212, 214, 215, 203, 213, 213, 300, 211, 212, 214, 215, 211, 212, 214, 215,
             221, 222, 224, 225, 223, 223, 223, 311, 221, 222, 224, 225, 221, 222, 224, 225,
             228, 229, 218, 219, 226, 226, 226, 311, 228, 229, 218, 219, 209, 209, 209, 312,
-            209
+            209, 312, 311
         ] + list(mj_game.tiles) + [
             213, 311,
         ])
         while state != GameState.CHECK_DRAW_ACTION:
             pid, state, target, actions = mj_game.get_next_state()
         pid, state, target, actions = mj_game.perform_action(Action.DISCARD, 209)
+        self.assertEqual(pid, 0)
         self.assertEqual(state, GameState.ACTION_ACCEPTED)
         pid, state, target, actions = mj_game.get_next_state()
-        self.assertIn((Action.KONG, 209), actions)
         self.assertEqual(pid, 3)
+        self.assertIn((Action.KONG, 209), actions)
         pid, state, target, actions = mj_game.perform_action(Action.KONG, 209)
+        self.assertEqual(pid, 3)
         self.assertEqual(state, GameState.ACTION_ACCEPTED)
         pid, state, target, actions = mj_game.get_next_state()
+        self.assertEqual(pid, 3)
         self.assertEqual(state, GameState.SUPPLY)
         pid, state, target, actions = mj_game.get_next_state()
+        self.assertEqual(pid, 3)
         self.assertEqual(state, GameState.CHECK_DRAW_ACTION)
         pid, state, target, actions = mj_game.perform_action(Action.DISCARD, 311)
+        self.assertEqual(pid, 3)
         self.assertEqual(state, GameState.ACTION_ACCEPTED)
         pid, state, target, actions = mj_game.get_next_state()
+        self.assertEqual(pid, 1)
         self.assertNotIn((Action.GOAL, 311), actions)
         self.assertIn((Action.PONG, 311), actions)
-        pid, state, target, actions = mj_game.perform_action(Action.PONG, 311)
+        pid, state, target, actions = mj_game.perform_action(Action.PASS, 311)
+        self.assertEqual(pid, 1)
         self.assertEqual(state, GameState.ACTION_ACCEPTED)
         pid, state, target, actions = mj_game.get_next_state()
+        self.assertEqual(pid, 0)
+        self.assertEqual(state, GameState.DRAW)
+        self.assertEqual(target, 312)
+        pid, state, target, actions = mj_game.get_next_state()
+        self.assertEqual(pid, 0)
         self.assertEqual(state, GameState.CHECK_DRAW_ACTION)
-        self.assertIn((Action.SELF_KONG, 203), actions)
-        self.assertNotIn((Action.SELF_GOAL, 213), actions)
-        pid, state, target, actions = mj_game.perform_action(Action.SELF_KONG, 203)
+        pid, state, target, actions = mj_game.perform_action(Action.DISCARD, 312)
+        self.assertEqual(pid, 0)
         self.assertEqual(state, GameState.ACTION_ACCEPTED)
         pid, state, target, actions = mj_game.get_next_state()
+        self.assertEqual(pid, 1)
+        self.assertEqual(state, GameState.DRAW)
+        self.assertEqual(target, 311)
+        pid, state, target, actions = mj_game.get_next_state()
+        self.assertIn((Action.SELF_KONG, 203), actions)
+        self.assertNotIn((Action.SELF_GOAL, 213), actions)  # cannot goal
+        pid, state, target, actions = mj_game.perform_action(Action.SELF_KONG, 203)
+        self.assertEqual(pid, 1)
+        self.assertEqual(state, GameState.ACTION_ACCEPTED)
+        pid, state, target, actions = mj_game.get_next_state()
+        self.assertEqual(pid, 1)
         self.assertEqual(state, GameState.SUPPLY)
         pid, state, target, actions = mj_game.get_next_state()
+        self.assertEqual(pid, 1)
         self.assertIn((Action.SELF_GOAL, 213), actions)
         pid, state, target, actions = mj_game.perform_action(Action.SELF_GOAL, 213)
+        self.assertEqual(pid, 1)
         self.assertEqual(state, GameState.ACTION_ACCEPTED)
         pid, state, target, actions = mj_game.get_next_state()
         self.assertEqual(state, GameState.END)

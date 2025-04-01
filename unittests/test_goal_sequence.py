@@ -1,6 +1,6 @@
 import unittest
 
-from ..engine import MahjongGame, GameState, Action
+from mahjong16tw_core.engine import MahjongGame, GameState, Action
 
 
 class MyTestCase(unittest.TestCase):

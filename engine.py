@@ -405,7 +405,7 @@ class PlayerTiles:
         self.display_tiles.append(-1)
         return True
 
-    def get_draw_actions(self, can_goal: bool) -> list[tuple[Action, int]]:
+    def get_draw_actions(self, can_goal: bool, can_kong: bool) -> list[tuple[Action, int]]:
         actions: list[tuple[Action, int]] = []
         tile_counter = get_tile_counter(self.hand)
 
@@ -418,13 +418,14 @@ class PlayerTiles:
             self.sort()
 
         # KONG
-        for t, c in tile_counter.items():
-            if c == 4:
-                actions.append((Action.SELF_KONG, t))
+        if can_kong:
+            for t, c in tile_counter.items():
+                if c == 4:
+                    actions.append((Action.SELF_KONG, t))
 
-        for tile in self.shown_pong:
-            if tile_counter.get(tile, 0) == 1:
-                actions.append((Action.EXTEND_KONG, tile))
+            for tile in self.shown_pong:
+                if tile_counter.get(tile, 0) == 1:
+                    actions.append((Action.EXTEND_KONG, tile))
         return actions
 
     def get_discard_actions(self, target: int, owner: int, can_goal: bool) -> list[tuple[Action, int]]:
@@ -472,8 +473,6 @@ class MahjongGame:
         self._current_pid: int = 0
         self.dice_result: tuple[int, int, int] = (1, 1, 1)
 
-        self._kong_goal_available: bool = False
-
         self.tiles: Deque[int] = deque()
         self.player_tiles: list[PlayerTiles] = [PlayerTiles() for _ in range(player_count)]
 
@@ -520,7 +519,7 @@ class MahjongGame:
         if flowers8:  # force self-goal. All results are on top of it.
             points.append((8, _key(PointType.FLOWER_8), ()))
 
-        for s in extra_points:  # TODO: add logic to handle it
+        for s in extra_points:
             match s:
                 case PointType.FLOWER_7:
                     points.append((8, _key(s), ()))
@@ -662,6 +661,9 @@ class MahjongGame:
         self._current_pid: int = self.banker
 
         can_goal = [True, True, True, True]
+        can_kong = True
+        kong_goal_available = False
+
         winner = -1
         losers = tuple()
         game_result = [], []
@@ -727,7 +729,7 @@ class MahjongGame:
                         state = GameState.CHECK_DRAW_ACTION  # banker already drawn 1 extra tile in the beginning
 
                 case GameState.DRAW:
-                    self._kong_goal_available = False
+                    kong_goal_available = False
                     self.current_player.append_hand(self.tiles.popleft())
                     if len(self.tiles) < RESERVED_TILES:
                         state = GameState.END
@@ -775,7 +777,7 @@ class MahjongGame:
                         game_result = self.game_result(winner, losers, extra_points=(PointType.FLOWER_7,))
                         continue
 
-                    actions = self.current_player.get_draw_actions(can_goal[self._current_pid])
+                    actions = self.current_player.get_draw_actions(can_goal[self._current_pid], can_kong)
                     self.current_player.sort()
 
                     _r = yield self._current_pid, GameState.CHECK_DRAW_ACTION, 0, actions
@@ -788,20 +790,20 @@ class MahjongGame:
                             state = GameState.END
                             winner = self._current_pid
                             losers = tuple(i for i in range(self.player_count) if i != self._current_pid)
-                            if self._kong_goal_available:
+                            if kong_goal_available:
                                 game_result = self.game_result(winner, losers, extra_points=(PointType.KONG_GOAL,))
                             else:
                                 game_result = self.game_result(winner, losers)
 
                         case Action.SELF_KONG:
-                            if not self.current_player.do_self_kong(target):
+                            if not can_kong or not self.current_player.do_self_kong(target):
                                 continue
                             yield self._current_pid, GameState.ACTION_ACCEPTED, target, action
-                            self._kong_goal_available = True
+                            kong_goal_available = True
                             state = GameState.SUPPLY
 
                         case Action.EXTEND_KONG:
-                            if not self.current_player.do_extend_kong(target):
+                            if not can_kong or not self.current_player.do_extend_kong(target):
                                 continue
                             yield self._current_pid, GameState.ACTION_ACCEPTED, target, action
                             can_goal[self._current_pid] = True
@@ -836,13 +838,14 @@ class MahjongGame:
                                     self._current_pid = opponent  # move the turn to opponent
                                     state = GameState.END
                                     break
-                            self._kong_goal_available = True
+                            kong_goal_available = True
 
                         case Action.DISCARD:
                             if not self.current_player.do_discard(target):
                                 continue
                             yield self._current_pid, GameState.ACTION_ACCEPTED, target, action
                             can_goal[self._current_pid] = True
+                            can_kong = True
 
                             # check if the rest 3 players have actions to this discarded tile
                             opponent_actions_in_sequence = []
@@ -873,7 +876,7 @@ class MahjongGame:
                                 match opponent_action:
                                     case Action.GOAL:
                                         if (Action.GOAL, target) not in opponent_actions:
-                                            continue  # TODO: allow opponent resending the action
+                                            continue
                                         yield opponent, GameState.ACTION_ACCEPTED, target, opponent_action
                                         self.player_tiles[opponent].do_goal(target)
                                         self.current_player.pop_discard()
@@ -886,18 +889,19 @@ class MahjongGame:
 
                                     case Action.KONG:
                                         if not self.player_tiles[opponent].do_kong(target):
-                                            continue  # TODO: allow opponent resending the action
+                                            continue
                                         yield opponent, GameState.ACTION_ACCEPTED, target, opponent_action
                                         self.current_player.pop_discard()
                                         self._current_pid = opponent  # move the turn to opponent
                                         state = GameState.SUPPLY
-                                        self._kong_goal_available = True
+                                        kong_goal_available = True
                                         break
 
                                     case Action.PONG:
                                         if not self.player_tiles[opponent].do_pong(target):
-                                            continue  # TODO: allow opponent resending the action
+                                            continue
                                         yield opponent, GameState.ACTION_ACCEPTED, target, opponent_action
+                                        can_kong = False
                                         self.current_player.pop_discard()
                                         self._current_pid = opponent  # move the turn to opponent
                                         self.current_player.recent_tile = self.current_player.hand[-1]
@@ -906,8 +910,9 @@ class MahjongGame:
 
                                     case Action.CHOW_LEFT:
                                         if not self.player_tiles[opponent].do_chow_left(target):
-                                            continue  # TODO: allow opponent resending the action
+                                            continue
                                         yield opponent, GameState.ACTION_ACCEPTED, target, opponent_action
+                                        can_kong = False
                                         self.current_player.pop_discard()
                                         self._current_pid = opponent  # move the turn to opponent
                                         self.current_player.recent_tile = self.current_player.hand[-1]
@@ -916,8 +921,9 @@ class MahjongGame:
 
                                     case Action.CHOW_MIDDLE:
                                         if not self.player_tiles[opponent].do_chow_middle(target):
-                                            continue  # TODO: allow opponent resending the action
+                                            continue
                                         yield opponent, GameState.ACTION_ACCEPTED, target, opponent_action
+                                        can_kong = False
                                         self.current_player.pop_discard()
                                         self._current_pid = opponent  # move the turn to opponent
                                         self.current_player.recent_tile = self.current_player.hand[-1]
@@ -926,8 +932,9 @@ class MahjongGame:
 
                                     case Action.CHOW_RIGHT:
                                         if not self.player_tiles[opponent].do_chow_right(target):
-                                            continue  # TODO: allow opponent resending the action
+                                            continue
                                         yield opponent, GameState.ACTION_ACCEPTED, target, opponent_action
+                                        can_kong = False
                                         self.current_player.pop_discard()
                                         self._current_pid = opponent  # move the turn to opponent
                                         self.current_player.recent_tile = self.current_player.hand[-1]

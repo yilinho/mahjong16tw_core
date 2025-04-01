@@ -1,7 +1,7 @@
 import unittest
 from collections import deque
 
-from ..engine import MahjongGame, GameState, Action
+from mahjong16tw_core.engine import MahjongGame, GameState, Action
 
 
 class MyTestCase(unittest.TestCase):
